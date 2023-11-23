@@ -13,7 +13,8 @@ from lnbits.core.crud import (
     get_wallets,
     update_admin_settings,
 )
-from lnbits.core.models import Account, AccountFilters, User, Wallet
+from lnbits.core.models import Account, AccountFilters, CreateTopup, User, Wallet
+from lnbits.core.services import update_wallet_balance
 from lnbits.db import Filters, Page
 from lnbits.decorators import check_admin, check_super_user, parse_filters
 from lnbits.settings import EditableSettings, settings
@@ -122,3 +123,27 @@ async def api_users_delete_user_wallet(user_id: str, wallet: str) -> None:
     if wal.deleted:
         await force_delete_wallet(wallet)
     await delete_wallet(user_id=user_id, wallet_id=wallet)
+
+
+@users_router.put(
+    "/topup/",
+    name="Topup",
+    status_code=HTTPStatus.OK,
+    dependencies=[Depends(check_super_user)],
+)
+async def api_topup_balance(data: CreateTopup) -> dict[str, str]:
+    try:
+        await get_wallet(data.id)
+    except Exception:
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN, detail="wallet does not exist."
+        )
+
+    if settings.lnbits_backend_wallet_class == "VoidWallet":
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN, detail="VoidWallet active"
+        )
+
+    await update_wallet_balance(wallet_id=data.id, amount=int(data.amount))
+
+    return {"status": "Success"}

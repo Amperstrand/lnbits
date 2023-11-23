@@ -19,12 +19,8 @@
           <div class="col">
             <h5 class="text-subtitle1 q-my-none" v-text="$t('users')"></h5>
           </div>
-          <q-btn
-            v-if="isSuperUser"
-            :label="$t('topup')"
-            color="primary"
-            @click="topupDialog.show = true"
-          >
+          <q-btn :label="$t('create')" color="primary"></q-btn>
+          <q-btn :label="$t('topup')" @click="topupDialog.show = true">
             <q-tooltip
               >{%raw%}{{ $t('add_funds_tooltip') }}{%endraw%}</q-tooltip
             >
@@ -132,7 +128,7 @@
         </q-table>
       </q-card-section>
     </q-card>
-    <q-dialog v-if="isSuperUser" v-model="topupDialog.show" position="top">
+    <q-dialog v-model="topupDialog.show" position="top">
       <q-card class="q-pa-lg q-pt-xl lnbits__dialog-card">
         <q-form class="q-gutter-md">
           <p v-text="$t('topup_wallet')"></p>
@@ -202,6 +198,16 @@
                 <q-btn
                   v-if="!props.row.deleted"
                   round
+                  icon="content_copy"
+                  size="sm"
+                  color="primary"
+                  @click="copyText(props.row.id)"
+                >
+                  <q-tooltip>Copy Wallet ID</q-tooltip>
+                </q-btn>
+                <q-btn
+                  v-if="!props.row.deleted"
+                  round
                   icon="login"
                   size="sm"
                   color="primary"
@@ -209,16 +215,11 @@
                 >
                   <q-tooltip>Login as User with Wallet</q-tooltip>
                 </q-btn>
-                <q-btn
-                  round
+                <lnbits-update-balance
                   v-if="!props.row.deleted"
-                  icon="add"
-                  size="sm"
-                  color="secondary"
-                  @click="topupUserWallet(props.row.id)"
-                >
-                  <q-tooltip>Topup Wallet</q-tooltip>
-                </q-btn>
+                  :wallet_id="props.row.id"
+                  :callback="topupCallback"
+                ></lnbits-update-balance>
                 <q-btn
                   round
                   v-if="!props.row.deleted"

@@ -12,6 +12,9 @@ new Vue({
         title: 'Wallets',
         show: false
       },
+      topupDialog: {
+        show: false
+      },
       walletTable: {
         columns: [
           {
@@ -351,6 +354,14 @@ new Vue({
     },
     exportUsers() {
       console.log('export users')
+    },
+    topupCallback(res) {
+      this.wallets.forEach(wallet => {
+        if (res.wallet_id === wallet.id) {
+          wallet.balance_msat += res.value
+        }
+      })
+      this.fetchUsers()
     },
     topupWallet() {
       LNbits.api
