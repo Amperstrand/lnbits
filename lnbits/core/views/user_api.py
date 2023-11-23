@@ -13,9 +13,9 @@ from lnbits.core.crud import (
     get_wallets,
     update_admin_settings,
 )
-from lnbits.core.models import Account, AccountFilters, Wallet
+from lnbits.core.models import Account, AccountFilters, User, Wallet
 from lnbits.db import Filters, Page
-from lnbits.decorators import check_admin, parse_filters
+from lnbits.decorators import check_admin, check_super_user, parse_filters
 from lnbits.settings import EditableSettings, settings
 
 users_router = APIRouter(prefix="/users/api/v1", dependencies=[Depends(check_admin)])
@@ -44,17 +44,31 @@ async def api_users_get_users(
 
 
 @users_router.delete("/user/{user_id}", status_code=HTTPStatus.OK)
-async def api_users_delete_user(user_id: str) -> None:
+async def api_users_delete_user(
+    user_id: str, user: User = Depends(check_admin)
+) -> None:
     wallets = await get_wallets(user_id)
     if len(wallets) > 0:
         raise HTTPException(
             status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
             detail="Cannot delete user with wallets.",
         )
+    if user_id == settings.super_user:
+        raise HTTPException(
+            status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+            detail="Cannot delete super user.",
+        )
+
+    if user_id in settings.lnbits_admin_users and not user.super_user:
+        raise HTTPException(
+            status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+            detail="Only super_user can delete admin user.",
+        )
+
     await delete_account(user_id)
 
 
-@users_router.get("/user/{user_id}/admin")
+@users_router.get("/user/{user_id}/admin", dependencies=[Depends(check_super_user)])
 async def api_users_toggle_admin(user_id: str) -> None:
     if user_id == settings.super_user:
         raise HTTPException(

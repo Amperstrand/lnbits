@@ -118,7 +118,7 @@ new Vue({
       data: {
         datasets: [
           {
-            label: 'Balance - Transaction Count (TX Count / 10)',
+            label: 'Balance - TX Count (TX Count / 10) million sats',
             backgroundColor: 'rgb(255, 99, 132)',
             data: []
           }
@@ -135,7 +135,7 @@ new Vue({
       data: {
         datasets: [
           {
-            label: 'Transaction IN - Transaction OUT (TX Count / 10)',
+            label: 'IN - OUT (TX Count / 10) million sats',
             backgroundColor: 'rgb(0, 99, 132)',
             data: []
           }
@@ -261,7 +261,7 @@ new Vue({
       const data = filtered.map(user => {
         return {
           x: user.transaction_count,
-          y: user.balance_msat,
+          y: user.balance_msat / 1000000000,
           r: user.transaction_count / 10
         }
       })
@@ -270,8 +270,8 @@ new Vue({
 
       const data2 = filtered.map(user => {
         return {
-          x: user.transaction_in,
-          y: user.transaction_out,
+          x: user.transaction_in / 1000000000,
+          y: user.transaction_out / 100000000,
           r: user.transaction_count / 10
         }
       })
