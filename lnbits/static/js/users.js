@@ -351,6 +351,27 @@ new Vue({
     },
     exportUsers() {
       console.log('export users')
+    },
+    topupWallet() {
+      LNbits.api
+        .request(
+          'PUT',
+          '/users/api/v1/topup/?usr=' + this.g.user.id,
+          this.g.user.wallets[0].adminkey,
+          this.wallet
+        )
+        .then(_ => {
+          this.$q.notify({
+            type: 'positive',
+            message:
+              'Success! Added ' + this.wallet.amount + ' to ' + this.wallet.id,
+            icon: null
+          })
+          this.wallet = {}
+        })
+        .catch(function (error) {
+          LNbits.utils.notifyApiError(error)
+        })
     }
   }
 })

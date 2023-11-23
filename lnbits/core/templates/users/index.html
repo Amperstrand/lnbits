@@ -19,6 +19,16 @@
           <div class="col">
             <h5 class="text-subtitle1 q-my-none" v-text="$t('users')"></h5>
           </div>
+          <q-btn
+            v-if="isSuperUser"
+            :label="$t('topup')"
+            color="primary"
+            @click="topupDialog.show = true"
+          >
+            <q-tooltip
+              >{%raw%}{{ $t('add_funds_tooltip') }}{%endraw%}</q-tooltip
+            >
+          </q-btn>
           <q-btn @click="refreshUsers" label="Refresh"></q-btn>
           <div class="col-auto">
             <q-btn
@@ -122,6 +132,54 @@
         </q-table>
       </q-card-section>
     </q-card>
+    <q-dialog v-if="isSuperUser" v-model="topupDialog.show" position="top">
+      <q-card class="q-pa-lg q-pt-xl lnbits__dialog-card">
+        <q-form class="q-gutter-md">
+          <p v-text="$t('topup_wallet')"></p>
+
+          <div class="row">
+            <div class="col-12">
+              <q-input
+                dense
+                type="text"
+                filled
+                v-model="wallet.id"
+                label="Wallet ID"
+                :hint="$t('topup_hint')"
+              ></q-input>
+
+              <br />
+            </div>
+
+            <div class="col-12">
+              <q-input
+                dense
+                type="number"
+                filled
+                v-model="wallet.amount"
+                :label="$t('amount')"
+              ></q-input>
+            </div>
+          </div>
+
+          <div class="row q-mt-lg">
+            <q-btn
+              :label="$t('topup')"
+              color="primary"
+              @click="topupWallet"
+            ></q-btn>
+
+            <q-btn
+              v-close-popup
+              flat
+              color="grey"
+              class="q-ml-auto"
+              :label="$t('cancel')"
+            ></q-btn>
+          </div>
+        </q-form>
+      </q-card>
+    </q-dialog>
     <q-dialog v-model="walletDialog.show" full-width>
       <q-card class="q-pa-lg">
         <h2 class="text-h6 q-mb-md" v-text="walletDialog.title"></h2>
