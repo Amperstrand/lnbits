@@ -358,7 +358,7 @@ new Vue({
     topupCallback(res) {
       this.wallets.forEach(wallet => {
         if (res.wallet_id === wallet.id) {
-          wallet.balance_msat += res.value
+          wallet.balance_msat += res.value * 1000
         }
       })
       this.fetchUsers()
