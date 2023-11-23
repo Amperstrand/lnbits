@@ -2,12 +2,24 @@
 %} {% block page %}
 <div class="row q-col-gutter-md justify-center">
   <div class="col q-gutter-y-md">
+    <canvas ref="chart1" width="400" height="400"></canvas>
+  </div>
+  <div class="col q-gutter-y-md">
+    <canvas ref="chart2" width="400" height="400"></canvas>
+  </div>
+  <div class="col q-gutter-y-md">
+    <canvas ref="chart3" width="400" height="400"></canvas>
+  </div>
+</div>
+<div class="row q-col-gutter-md justify-center">
+  <div class="col q-gutter-y-md">
     <q-card>
       <q-card-section>
         <div class="row items-center no-wrap q-mb-sm">
           <div class="col">
             <h5 class="text-subtitle1 q-my-none" v-text="$t('users')"></h5>
           </div>
+          <q-btn @click="refreshUsers" label="Refresh"></q-btn>
           <div class="col-auto">
             <q-btn
               flat
@@ -51,15 +63,162 @@
           <template v-slot:body="props">
             <q-tr :props="props">
               <q-td auto-width class="text-center">
-                <q-icon name="edit" color="grey"> </q-icon>
-                <q-icon name="delete" color="grey"> </q-icon>
+                <q-btn
+                  round
+                  icon="login"
+                  size="sm"
+                  color="primary"
+                  @click="loginAsUser(props.row.id)"
+                >
+                  <q-tooltip>Login as User</q-tooltip>
+                </q-btn>
+                <q-btn
+                  round
+                  icon="menu"
+                  size="sm"
+                  color="secondary"
+                  @click="fetchWallets(props.row.id)"
+                >
+                  <q-tooltip>Show Wallets</q-tooltip>
+                </q-btn>
+                <q-btn
+                  round
+                  v-if="!props.row.super_user"
+                  icon="build"
+                  size="sm"
+                  :color="props.row.admin ? 'primary' : ''"
+                  @click="toggleAdmin(props.row.id)"
+                >
+                  <q-tooltip>Toggle Admin</q-tooltip>
+                </q-btn>
+                <q-btn
+                  round
+                  v-if="props.row.super_user"
+                  icon="build"
+                  size="sm"
+                  color="positive"
+                >
+                  <q-tooltip>Super User</q-tooltip>
+                </q-btn>
+                <q-btn
+                  round
+                  icon="delete"
+                  size="sm"
+                  color="negative"
+                  @click="deleteUser(props.row.id, props)"
+                >
+                  <q-tooltip>Delete User</q-tooltip>
+                </q-btn>
               </q-td>
-              <q-td v-text="props.row.usr"></q-td>
+              <q-td auto-width v-text="props.row.username"></q-td>
+              <q-td auto-width v-text="props.row.email"></q-td>
+              <q-td auto-width v-text="props.row.balance_msat"></q-td>
+              <q-td auto-width v-text="props.row.wallet_count"></q-td>
+              <q-td auto-width v-text="props.row.transaction_count"></q-td>
+              <q-td auto-width v-text="props.row.transaction_in"></q-td>
+              <q-td auto-width v-text="props.row.transaction_out"></q-td>
             </q-tr>
           </template>
         </q-table>
       </q-card-section>
     </q-card>
+    <q-dialog v-model="walletDialog.show" full-width>
+      <q-card class="q-pa-lg">
+        <h2 class="text-h6 q-mb-md" v-text="walletDialog.title"></h2>
+        <q-table :data="wallets" :columns="walletTable.columns">
+          <template v-slot:header="props">
+            <q-tr :props="props">
+              <q-th auto-width></q-th>
+              <q-th
+                auto-width
+                v-for="col in props.cols"
+                v-text="col.label"
+                :key="col.name"
+                :props="props"
+              ></q-th>
+            </q-tr>
+          </template>
+          <template v-slot:body="props">
+            <q-tr :props="props">
+              <q-td auto-width class="text-center">
+                <q-btn
+                  v-if="!props.row.deleted"
+                  round
+                  icon="login"
+                  size="sm"
+                  color="primary"
+                  @click="loginAsUserWallet(props.row.user, props.row.id)"
+                >
+                  <q-tooltip>Login as User with Wallet</q-tooltip>
+                </q-btn>
+                <q-btn
+                  round
+                  v-if="!props.row.deleted"
+                  icon="add"
+                  size="sm"
+                  color="secondary"
+                  @click="topupUserWallet(props.row.id)"
+                >
+                  <q-tooltip>Topup Wallet</q-tooltip>
+                </q-btn>
+                <q-btn
+                  round
+                  v-if="!props.row.deleted"
+                  icon="vpn_key"
+                  size="sm"
+                  color="primary"
+                  @click="copyText(props.row.adminkey)"
+                >
+                  <q-tooltip>Copy Admin Key</q-tooltip>
+                </q-btn>
+                <q-btn
+                  round
+                  v-if="!props.row.deleted"
+                  icon="vpn_key"
+                  size="sm"
+                  color="secondary"
+                  @click="copyText(props.row.inkey)"
+                >
+                  <q-tooltip>Copy Invoice Key</q-tooltip>
+                </q-btn>
+                <q-btn
+                  round
+                  v-if="props.row.deleted"
+                  icon="toggle_off"
+                  size="sm"
+                  color="secondary"
+                  @click="undeleteUserWallet(props.row.user, props.row.id)"
+                >
+                  <q-tooltip>Undelete Wallet</q-tooltip>
+                </q-btn>
+                <q-btn
+                  round
+                  icon="delete"
+                  size="sm"
+                  color="negative"
+                  @click="deleteUserWallet(props.row.user, props.row.id, props.row.deleted)"
+                >
+                  <q-tooltip>Delete Wallet</q-tooltip>
+                </q-btn>
+              </q-td>
+              <q-td auto-width v-text="props.row.name"></q-td>
+              <q-td auto-width v-text="props.row.currency"></q-td>
+              <q-td auto-width v-text="props.row.balance_msat"></q-td>
+              <q-td auto-width v-text="props.row.deleted"></q-td>
+            </q-tr>
+          </template>
+        </q-table>
+        <div class="row q-mt-lg">
+          <q-btn
+            v-close-popup
+            flat
+            color="grey"
+            class="q-ml-auto"
+            :label="$t('close')"
+          ></q-btn>
+        </div>
+      </q-card>
+    </q-dialog>
   </div>
 </div>
 

@@ -400,6 +400,23 @@ window.LNbits = {
       converter.setFlavor('github')
       converter.setOption('simpleLineBreaks', true)
       return converter.makeHtml(text)
+    },
+    prepareFilterQuery(tableConfig, props) {
+      if (props) {
+        tableConfig.pagination = props.pagination
+      }
+      let pagination = tableConfig.pagination
+      tableConfig.loading = true
+      const query = {
+        limit: pagination.rowsPerPage,
+        offset: (pagination.page - 1) * pagination.rowsPerPage,
+        sortby: pagination.sortBy ?? '',
+        direction: pagination.descending ? 'desc' : 'asc'
+      }
+      if (tableConfig.filter) {
+        query.search = tableConfig.filter
+      }
+      return new URLSearchParams(query)
     }
   }
 }
