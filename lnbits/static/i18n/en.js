@@ -9,7 +9,6 @@ window.localisation.en = {
   transactions: 'Transactions',
   dashboard: 'Dashboard',
   node: 'Node',
-  user: 'User',
   export_users: 'Export Users',
   no_users: 'No users found',
   total_capacity: 'Total Capacity',
