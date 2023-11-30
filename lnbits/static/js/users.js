@@ -18,14 +18,17 @@ new Vue({
         data: {},
         fields: [
           {
-            type: 'str',
             description: 'Username',
             name: 'username'
           },
           {
-            type: 'str',
             description: 'Email',
             name: 'email'
+          },
+          {
+            type: 'password',
+            description: 'Password',
+            name: 'password'
           }
         ],
         show: false
