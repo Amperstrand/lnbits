@@ -229,5 +229,6 @@ window.localisation.en = {
   logout: 'Logout',
   look_and_feel: 'Look and Feel',
   language: 'Language',
-  color_scheme: 'Color Scheme'
+  color_scheme: 'Color Scheme',
+  hide_empty_wallets: 'Hide empty wallets'
 }

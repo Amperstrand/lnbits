@@ -9,10 +9,47 @@ new Vue({
       users: [],
       wallets: [],
       walletDialog: {
-        title: 'Wallets',
         show: false
       },
       topupDialog: {
+        show: false
+      },
+      createUserDialog: {
+        data: {},
+        fields: [
+          {
+            type: 'str',
+            description: 'Username',
+            name: 'username'
+          },
+          {
+            type: 'str',
+            description: 'Email',
+            name: 'email'
+          }
+        ],
+        show: false
+      },
+      createWalletDialog: {
+        data: {},
+        fields: [
+          {
+            type: 'str',
+            description: 'Wallet Name',
+            name: 'name'
+          },
+          {
+            type: 'select',
+            values: ['', 'EUR', 'USD'],
+            description: 'Currency',
+            name: 'currency'
+          },
+          {
+            type: 'str',
+            description: 'Balance',
+            name: 'balance'
+          }
+        ],
         show: false
       },
       walletTable: {
@@ -103,6 +140,7 @@ new Vue({
           rowsNumber: 10
         },
         filter: null,
+        hide_empty_wallets: true,
         loading: false
       }
     }
@@ -175,6 +213,46 @@ new Vue({
     },
     refreshUsers() {
       this.fetchUsers()
+    },
+    createUser() {
+      LNbits.api
+        .request(
+          'POST',
+          '/users/api/v1/user/?usr=' + this.g.user.id,
+          null,
+          this.createUserDialog.data
+        )
+        .then(() => {
+          this.fetchUsers()
+          this.$q.notify({
+            type: 'positive',
+            message: 'Success! User created!',
+            icon: null
+          })
+        })
+        .catch(function (error) {
+          LNbits.utils.notifyApiError(error)
+        })
+    },
+    createWallet(user_id) {
+      LNbits.api
+        .request(
+          'POST',
+          '/users/api/v1/user/' + user_id + '/wallet?usr=' + this.g.user.id,
+          null,
+          this.createWalletDialog.data
+        )
+        .then(() => {
+          this.fetchUsers()
+          this.$q.notify({
+            type: 'positive',
+            message: 'Success! User created!',
+            icon: null
+          })
+        })
+        .catch(function (error) {
+          LNbits.utils.notifyApiError(error)
+        })
     },
     deleteUser(user_id) {
       LNbits.utils
