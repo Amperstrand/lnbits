@@ -139,10 +139,25 @@ new Vue({
           descending: true,
           rowsNumber: 10
         },
-        filter: null,
-        hide_empty_wallets: true,
+        search: null,
+        hideEmpty: true,
+        filter: {
+          'transaction_count[gt]': 0
+        },
         loading: false
       }
+    }
+  },
+  watch: {
+    'usersTable.hideEmpty': function (newVal, _) {
+      if (newVal) {
+        this.usersTable.filter = {
+          'transaction_count[gt]': 0
+        }
+      } else {
+        this.usersTable.filter = {}
+      }
+      this.fetchUsers()
     }
   },
   created() {

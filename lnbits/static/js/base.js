@@ -429,10 +429,11 @@ window.LNbits = {
         limit: pagination.rowsPerPage,
         offset: (pagination.page - 1) * pagination.rowsPerPage,
         sortby: pagination.sortBy ?? '',
-        direction: pagination.descending ? 'desc' : 'asc'
+        direction: pagination.descending ? 'desc' : 'asc',
+        ...tableConfig.filter
       }
-      if (tableConfig.filter) {
-        query.search = tableConfig.filter
+      if (tableConfig.search) {
+        query.search = tableConfig.search
       }
       return new URLSearchParams(query)
     }

@@ -184,12 +184,12 @@ async def get_accounts(
                 WHERE amount < 0 AND wallet = wallets.id
             ) as transaction_out
         FROM accounts LEFT JOIN wallets ON accounts.id = wallets.user
-        GROUP BY accounts.id
         """,
         [],
         [],
         filters=filters,
         model=Account,
+        group_by="accounts.id",
     )
 
 

@@ -40,7 +40,7 @@ include "users/_createWalletDialog.html" %}
               :label="$t('export_users')"
             ></q-btn>
             <q-toggle
-              v-model="usersTable.hide_empty_wallets"
+              v-model="usersTable.hideEmpty"
               :label="$t('hide_empty_wallets')"
             />
           </div>
@@ -49,7 +49,7 @@ include "users/_createWalletDialog.html" %}
           filled
           dense
           clearable
-          v-model="usersTable.filter"
+          v-model="usersTable.search"
           debounce="300"
           :placeholder="$t('search_by_tag_memo_amount')"
           class="q-mb-md"
@@ -61,7 +61,7 @@ include "users/_createWalletDialog.html" %}
           :columns="usersTable.columns"
           :pagination.sync="usersTable.pagination"
           :no-data-label="$t('no_users')"
-          :filter="usersTable.filter"
+          :filter="usersTable.search"
           :loading="usersTable.loading"
           @request="fetchUsers"
         >
