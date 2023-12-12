@@ -33,12 +33,6 @@ include "users/_createWalletDialog.html" %}
           </q-btn>
           <q-btn @click="fetchUsers" label="Refresh"></q-btn>
           <div class="col-auto">
-            <q-btn
-              flat
-              color="grey"
-              @click="exportUsers"
-              :label="$t('export_users')"
-            ></q-btn>
             <q-toggle
               v-model="usersTable.hideEmpty"
               :label="$t('hide_empty_wallets')"
