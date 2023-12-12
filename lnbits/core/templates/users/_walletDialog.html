@@ -27,16 +27,6 @@
             >
               <q-tooltip>Copy Wallet ID</q-tooltip>
             </q-btn>
-            <q-btn
-              v-if="!props.row.deleted"
-              round
-              icon="login"
-              size="sm"
-              color="primary"
-              @click="loginAsUserWallet(props.row.user, props.row.id)"
-            >
-              <q-tooltip>Login as User with Wallet</q-tooltip>
-            </q-btn>
             <lnbits-update-balance
               v-if="!props.row.deleted"
               :wallet_id="props.row.id"

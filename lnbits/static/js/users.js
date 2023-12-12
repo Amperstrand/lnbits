@@ -223,12 +223,6 @@ new Vue({
     usersTableRowKey: function (row) {
       return row.id
     },
-    loginAsUser(user) {
-      window.open('/wallet?usr=' + user, '_blank')
-    },
-    loginAsUserWallet(user, wallet) {
-      window.open('/wallet?usr=' + user + '&wal=' + wallet, '_blank')
-    },
     refreshUsers() {
       this.fetchUsers()
     },
@@ -236,7 +230,7 @@ new Vue({
       LNbits.api
         .request(
           'POST',
-          '/users/api/v1/user/?usr=' + this.g.user.id,
+          '/users/api/v1/user/',
           null,
           this.createUserDialog.data
         )
@@ -256,7 +250,7 @@ new Vue({
       LNbits.api
         .request(
           'POST',
-          '/users/api/v1/user/' + user_id + '/wallet?usr=' + this.g.user.id,
+          `/users/api/v1/user/${user_id}/wallet`,
           null,
           this.createWalletDialog.data
         )
@@ -277,10 +271,7 @@ new Vue({
         .confirmDialog('Are you sure you want to delete this user?')
         .onOk(() => {
           LNbits.api
-            .request(
-              'DELETE',
-              '/users/api/v1/user/' + user_id + '/?usr=' + this.g.user.id
-            )
+            .request('DELETE', `/users/api/v1/user/${user_id}/`)
             .then(() => {
               this.fetchUsers()
               this.$q.notify({
@@ -298,12 +289,7 @@ new Vue({
       LNbits.api
         .request(
           'GET',
-          '/users/api/v1/user/' +
-            user_id +
-            '/wallet/' +
-            wallet +
-            '/undelete?usr=' +
-            this.g.user.id
+          `/users/api/v1/user/${user_id}/wallet/${wallet}/undelete`
         )
         .then(() => {
           this.fetchWallets(user_id)
@@ -323,15 +309,7 @@ new Vue({
         : 'Are you sure you want to delete this user wallet?'
       LNbits.utils.confirmDialog(dialogText).onOk(() => {
         LNbits.api
-          .request(
-            'DELETE',
-            '/users/api/v1/user/' +
-              user_id +
-              '/wallet/' +
-              wallet +
-              '/?usr=' +
-              this.g.user.id
-          )
+          .request('DELETE', `/users/api/v1/user/${user_id}/wallet/${wallet}`)
           .then(() => {
             this.fetchWallets(user_id)
             this.$q.notify({
@@ -399,10 +377,7 @@ new Vue({
     fetchUsers(props) {
       const params = LNbits.utils.prepareFilterQuery(this.usersTable, props)
       LNbits.api
-        .request(
-          'GET',
-          '/users/api/v1/user/?usr=' + this.g.user.id + '&' + params
-        )
+        .request('GET', `/users/api/v1/user?${params}`)
         .then(res => {
           this.usersTable.loading = false
           this.usersTable.pagination.rowsNumber = res.data.total
@@ -415,10 +390,7 @@ new Vue({
     },
     fetchWallets(user_id) {
       LNbits.api
-        .request(
-          'GET',
-          '/users/api/v1/user/' + user_id + '/wallet?usr=' + this.g.user.id
-        )
+        .request('GET', `/users/api/v1/user/${user_id}/wallet`)
         .then(res => {
           this.wallets = res.data
           this.walletDialog.show = this.wallets.length > 0
@@ -432,10 +404,7 @@ new Vue({
     },
     toggleAdmin(user_id) {
       LNbits.api
-        .request(
-          'GET',
-          '/users/api/v1/user/' + user_id + '/admin?usr=' + this.g.user.id
-        )
+        .request('GET', `/users/api/v1/user/${user_id}/admin`)
         .then(() => {
           this.fetchUsers()
           this.$q.notify({
@@ -463,15 +432,14 @@ new Vue({
       LNbits.api
         .request(
           'PUT',
-          '/users/api/v1/topup/?usr=' + this.g.user.id,
+          '/users/api/v1/topup/',
           this.g.user.wallets[0].adminkey,
           this.wallet
         )
         .then(_ => {
           this.$q.notify({
             type: 'positive',
-            message:
-              'Success! Added ' + this.wallet.amount + ' to ' + this.wallet.id,
+            message: `Success! Added ${this.wallet.amount} to ${this.wallet.id}`,
             icon: null
           })
           this.wallet = {}
