@@ -147,13 +147,13 @@ new Vue({
       type: 'bubble',
       options: {
         layout: {
-          padding: 20
+          padding: 10
         }
       },
       data: {
         datasets: [
           {
-            label: 'Balance - TX Count (TX Count / 10) million sats',
+            label: 'Balance - TX Count in million sats',
             backgroundColor: 'rgb(255, 99, 132)',
             data: []
           }
@@ -161,27 +161,29 @@ new Vue({
       }
     })
     this.chart2 = new Chart(this.$refs.chart2.getContext('2d'), {
-      type: 'bubble',
+      type: 'pie',
       options: {
+        responsive: true,
         layout: {
-          padding: 20
+          padding: 10
         }
       },
       data: {
         datasets: [
           {
-            label: 'IN - OUT (TX Count / 10) million sats',
-            backgroundColor: 'rgb(0, 99, 132)',
+            label: 'Transactions',
             data: []
           }
-        ]
+        ],
+        labels: []
       }
     })
     this.chart3 = new Chart(this.$refs.chart3.getContext('2d'), {
       type: 'pie',
       options: {
+        responsive: true,
         layout: {
-          padding: 42
+          padding: 10
         }
       },
       data: {
@@ -318,21 +320,11 @@ new Vue({
         return {
           x: user.transaction_count,
           y: user.balance_msat / 1000000000,
-          r: user.transaction_count / 1000
+          r: 3
         }
       })
       this.chart1.data.datasets[0].data = data
       this.chart1.update()
-
-      const data2 = filtered.map(user => {
-        return {
-          x: user.transaction_in / 1000000000,
-          y: user.transaction_out / 100000000,
-          r: user.transaction_count / 1000
-        }
-      })
-      this.chart2.data.datasets[0].data = data2
-      this.chart2.update()
 
       const COLORS = [
         '#4dc9f6',
@@ -345,12 +337,17 @@ new Vue({
         '#58595b',
         '#8549ba'
       ]
+
+      const data2 = filtered.map(user => user.transaction_count)
+      const colors2 = filtered.map((_, i) => COLORS[i % COLORS.length])
+      this.chart2.data.datasets[0].data = data2
+      this.chart2.data.datasets[0].backgroundColor = colors2
+      this.chart2.update()
+
       const data3 = filtered.map(user => user.balance_msat)
-      const labels3 = filtered.map(user => user.id.substring(0, 5))
       const colors3 = filtered.map((_, i) => COLORS[i % COLORS.length])
       this.chart3.data.datasets[0].data = data3
       this.chart3.data.datasets[0].backgroundColor = colors3
-      this.chart3.data.labels = labels3
       this.chart3.update()
     },
     fetchUsers(props) {
