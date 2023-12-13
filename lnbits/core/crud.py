@@ -164,32 +164,25 @@ async def get_accounts(
         """
         SELECT
             accounts.id,
-            username,
-            email,
-            (
-                SELECT SUM(balance) FROM balances WHERE wallet = wallets.id
-            ) as balance_msat,
-            (
-                SELECT COUNT(*) FROM wallets WHERE wallets.user = accounts.id
-            ) as wallet_count,
+            accounts.username,
+            accounts.email,
+            COALESCE((
+                SELECT balance FROM balances WHERE wallet = wallets.id
+            ), 0) as balance_msat,
             (
                 SELECT COUNT(*) FROM apipayments WHERE wallet = wallets.id
             ) as transaction_count,
             (
-                SELECT SUM(amount) FROM apipayments
-                WHERE amount > 0 AND wallet = wallets.id
-            ) as transaction_in,
-            (
-                SELECT SUM(amount) FROM apipayments
-                WHERE amount < 0 AND wallet = wallets.id
-            ) as transaction_out
-        FROM accounts LEFT JOIN wallets ON accounts.id = wallets.user
+                SELECT time FROM apipayments
+                WHERE wallet = wallets.id ORDER BY time DESC LIMIT 1
+            ) as last_payment
+            FROM accounts LEFT JOIN wallets ON accounts.id = wallets.user
         """,
         [],
         [],
         filters=filters,
         model=Account,
-        group_by="accounts.id",
+        group_by="wallets.user, accounts.id, wallets.id",
     )
 
 
@@ -567,7 +560,7 @@ async def get_wallets(user_id: str, conn: Optional[Connection] = None) -> List[W
     rows = await (conn or db).fetchall(
         """
         SELECT *, COALESCE((SELECT balance FROM balances WHERE wallet = wallets.id), 0)
-        AS balance_msat FROM wallets WHERE user = ?
+        AS balance_msat FROM wallets WHERE "user" = ?
         """,
         (user_id,),
     )

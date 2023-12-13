@@ -32,23 +32,7 @@ include "users/_createWalletDialog.html" %}
             >
           </q-btn>
           <q-btn @click="fetchUsers" label="Refresh"></q-btn>
-          <div class="col-auto">
-            <q-toggle
-              v-model="usersTable.hideEmpty"
-              :label="$t('hide_empty_wallets')"
-            />
-          </div>
         </div>
-        <q-input
-          filled
-          dense
-          clearable
-          v-model="usersTable.search"
-          debounce="300"
-          :placeholder="$t('search_by_tag_memo_amount')"
-          class="q-mb-md"
-        >
-        </q-input>
         <q-table
           :data="users"
           :row-key="usersTableRowKey"
@@ -84,6 +68,15 @@ include "users/_createWalletDialog.html" %}
                 </q-btn>
                 <q-btn
                   round
+                  icon="content_copy"
+                  size="sm"
+                  color="primary"
+                  @click="copyText(props.row.id)"
+                >
+                  <q-tooltip>Copy User ID</q-tooltip>
+                </q-btn>
+                <q-btn
+                  round
                   v-if="!props.row.super_user"
                   icon="build"
                   size="sm"
@@ -113,11 +106,11 @@ include "users/_createWalletDialog.html" %}
               </q-td>
               <q-td auto-width v-text="props.row.username"></q-td>
               <q-td auto-width v-text="props.row.email"></q-td>
-              <q-td auto-width v-text="props.row.balance_msat"></q-td>
-              <q-td auto-width v-text="props.row.wallet_count"></q-td>
+              <q-td
+                auto-width
+                v-text="formatSat(props.row.balance_msat)"
+              ></q-td>
               <q-td auto-width v-text="props.row.transaction_count"></q-td>
-              <q-td auto-width v-text="props.row.transaction_in"></q-td>
-              <q-td auto-width v-text="props.row.transaction_out"></q-td>
             </q-tr>
           </template>
         </q-table>

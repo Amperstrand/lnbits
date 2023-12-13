@@ -74,7 +74,7 @@
           </q-td>
           <q-td auto-width v-text="props.row.name"></q-td>
           <q-td auto-width v-text="props.row.currency"></q-td>
-          <q-td auto-width v-text="props.row.balance_msat"></q-td>
+          <q-td auto-width v-text="formatSat(props.row.balance_msat)"></q-td>
           <q-td auto-width v-text="props.row.deleted"></q-td>
         </q-tr>
       </template>

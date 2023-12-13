@@ -96,11 +96,9 @@ class Account(FromRowModel):
     admin: Optional[bool] = False
     username: Optional[str] = None
     email: Optional[str] = None
-    wallet_count: Optional[int] = 0
     balance_msat: Optional[int] = 0
     transaction_count: Optional[int] = 0
-    transaction_in: Optional[int] = 0
-    transaction_out: Optional[int] = 0
+    last_payment: Optional[datetime.datetime] = None
 
 
 class AccountFilters(FilterModel):
@@ -110,12 +108,11 @@ class AccountFilters(FilterModel):
         "email",
         "username",
         "transaction_count",
-        "transaction_in",
-        "transaction_out",
-        "wallet_count",
+        "last_payment",
     ]
 
     id: str
+    last_payment: Optional[datetime.datetime] = None
     transaction_count: Optional[int] = None
     username: Optional[str] = None
     email: Optional[str] = None

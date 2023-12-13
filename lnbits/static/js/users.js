@@ -107,31 +107,10 @@ new Vue({
             sortable: true
           },
           {
-            name: 'wallet_count',
-            align: 'left',
-            label: 'Wallet Count',
-            field: 'wallet_count',
-            sortable: true
-          },
-          {
             name: 'transaction_count',
             align: 'left',
             label: 'Transaction Count',
             field: 'transaction_count',
-            sortable: true
-          },
-          {
-            name: 'transaction_out',
-            align: 'left',
-            label: 'Outgoing',
-            field: 'transaction_out',
-            sortable: true
-          },
-          {
-            name: 'transaction_in',
-            align: 'left',
-            label: 'Incoming',
-            field: 'transaction_in',
             sortable: true
           }
         ],
@@ -144,9 +123,6 @@ new Vue({
         },
         search: null,
         hideEmpty: true,
-        filter: {
-          'transaction_count[gt]': 0
-        },
         loading: false
       }
     }
@@ -220,6 +196,9 @@ new Vue({
     })
   },
   methods: {
+    formatSat: function (value) {
+      return LNbits.utils.formatSat(Math.floor(value / 1000))
+    },
     usersTableRowKey: function (row) {
       return row.id
     },
@@ -339,7 +318,7 @@ new Vue({
         return {
           x: user.transaction_count,
           y: user.balance_msat / 1000000000,
-          r: user.transaction_count / 10
+          r: user.transaction_count / 1000
         }
       })
       this.chart1.data.datasets[0].data = data
@@ -349,7 +328,7 @@ new Vue({
         return {
           x: user.transaction_in / 1000000000,
           y: user.transaction_out / 100000000,
-          r: user.transaction_count / 10
+          r: user.transaction_count / 1000
         }
       })
       this.chart2.data.datasets[0].data = data2
