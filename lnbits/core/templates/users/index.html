@@ -23,11 +23,6 @@ include "users/_createWalletDialog.html" %}
     <q-card>
       <q-card-section>
         <div class="row items-center no-wrap q-mb-sm">
-          <q-btn
-            :label="$t('create')"
-            @click="createUserDialog.show = true"
-            color="primary"
-          ></q-btn>
           <q-btn :label="$t('topup')" @click="topupDialog.show = true">
             <q-tooltip
               >{%raw%}{{ $t('add_funds_tooltip') }}{%endraw%}</q-tooltip
