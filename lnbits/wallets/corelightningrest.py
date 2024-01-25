@@ -1,13 +1,13 @@
 import asyncio
-import json
 import random
-from typing import AsyncGenerator, Dict, Optional
+from typing import Any, AsyncGenerator, Optional
 
-import httpx
-from bolt11 import Bolt11Exception
-from bolt11.decode import decode
+from bolt11.decode import decode as bolt11_decode
+from bolt11.exceptions import Bolt11Exception
 from loguru import logger
+from pyln.client import LightningRpc, RpcError
 
+from lnbits.nodes.cln import CoreLightningNode
 from lnbits.settings import settings
 
 from .base import (
@@ -18,70 +18,45 @@ from .base import (
     Unsupported,
     Wallet,
 )
-from .macaroon import load_macaroon
 
 
-class CoreLightningRestWallet(Wallet):
+async def run_sync(func) -> Any:
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, func)
+
+
+class CoreLightningWallet(Wallet):
+    __node_cls__ = CoreLightningNode
+
     def __init__(self):
-        if not settings.corelightning_rest_url:
+        rpc = settings.corelightning_rpc or settings.clightning_rpc
+        if not rpc:
             raise ValueError(
-                "cannot initialize CoreLightningRestWallet: "
-                "missing corelightning_rest_url"
-            )
-        if not settings.corelightning_rest_macaroon:
-            raise ValueError(
-                "cannot initialize CoreLightningRestWallet: "
-                "missing corelightning_rest_macaroon"
-            )
-        macaroon = load_macaroon(settings.corelightning_rest_macaroon)
-        if not macaroon:
-            raise ValueError(
-                "cannot initialize CoreLightningRestWallet: "
-                "invalid corelightning_rest_macaroon provided"
+                "cannot initialize CoreLightningWallet: missing corelightning_rpc"
             )
 
-        self.url = self.normalize_endpoint(settings.corelightning_rest_url)
-        headers = {
-            "macaroon": macaroon,
-            "encodingtype": "hex",
-            "accept": "application/json",
-            "User-Agent": settings.user_agent,
-        }
+        self.ln = LightningRpc(rpc)
+        # check if description_hash is supported (from corelightning>=v0.11.0)
+        command = self.ln.help("invoice")["help"][0]["command"]  # type: ignore
+        self.supports_description_hash = "deschashonly" in command
 
-        self.cert = settings.corelightning_rest_cert or False
-        self.client = httpx.AsyncClient(verify=self.cert, headers=headers)
+        # check last payindex so we can listen from that point on
         self.last_pay_index = 0
-        self.statuses = {
-            "paid": True,
-            "complete": True,
-            "failed": False,
-            "pending": None,
-        }
-
-    async def cleanup(self):
-        try:
-            await self.client.aclose()
-        except RuntimeError as e:
-            logger.warning(f"Error closing wallet connection: {e}")
+        invoices: dict = self.ln.listinvoices()  # type: ignore
+        for inv in invoices["invoices"][::-1]:
+            if "pay_index" in inv:
+                self.last_pay_index = inv["pay_index"]
+                break
 
     async def status(self) -> StatusResponse:
-        r = await self.client.get(f"{self.url}/v1/channel/localremotebal", timeout=5)
-        r.raise_for_status()
-        if r.is_error or "error" in r.json():
-            try:
-                data = r.json()
-                error_message = data["error"]
-            except Exception:
-                error_message = r.text
+        try:
+            funds: dict = self.ln.listfunds()  # type: ignore
             return StatusResponse(
-                f"Failed to connect to {self.url}, got: '{error_message}...'", 0
+                None, sum([int(ch["our_amount_msat"]) for ch in funds["channels"]])
             )
-
-        data = r.json()
-        if len(data) == 0:
-            return StatusResponse("no data", 0)
-
-        return StatusResponse(None, int(data.get("localBalance") * 1000))
+        except RpcError as exc:
+            error_message = f"lightningd '{exc.method}' failed with '{exc.error}'."
+            return StatusResponse(error_message, 0)
 
     async def create_invoice(
         self,
@@ -92,170 +67,151 @@ class CoreLightningRestWallet(Wallet):
         **kwargs,
     ) -> InvoiceResponse:
         label = f"lbl{random.random()}"
-        data: Dict = {
-            "amount": amount * 1000,
-            "description": memo,
-            "label": label,
-        }
-        if description_hash and not unhashed_description:
-            raise Unsupported(
-                "'description_hash' unsupported by CoreLightningRest, "
-                "provide 'unhashed_description'"
+        msat: int = int(amount * 1000)
+        try:
+            if description_hash and not unhashed_description:
+                raise Unsupported(
+                    "'description_hash' unsupported by CoreLightning, provide"
+                    " 'unhashed_description'"
+                )
+            if unhashed_description and not self.supports_description_hash:
+                raise Unsupported("unhashed_description")
+            r: dict = self.ln.invoice(  # type: ignore
+                msatoshi=msat,
+                label=label,
+                description=(
+                    unhashed_description.decode() if unhashed_description else memo
+                ),
+                exposeprivatechannels=True,
+                deschashonly=(
+                    True if unhashed_description else False
+                ),  # we can't pass None here
+                expiry=kwargs.get("expiry"),
             )
 
-        if unhashed_description:
-            data["description"] = unhashed_description.decode("utf-8")
+            if r.get("code") and r.get("code") < 0:  # type: ignore
+                raise Exception(r.get("message"))
 
-        if kwargs.get("expiry"):
-            data["expiry"] = kwargs["expiry"]
-
-        if kwargs.get("preimage"):
-            data["preimage"] = kwargs["preimage"]
-
-        r = await self.client.post(
-            f"{self.url}/v1/invoice/genInvoice",
-            data=data,
-        )
-
-        if r.is_error or "error" in r.json():
-            try:
-                data = r.json()
-                error_message = data["error"]
-            except Exception:
-                error_message = r.text
-
+            return InvoiceResponse(True, r["payment_hash"], r["bolt11"], "")
+        except RpcError as exc:
+            error_message = (
+                f"CoreLightning method '{exc.method}' failed with"
+                f" '{exc.error.get('message') or exc.error}'."  # type: ignore
+            )
             return InvoiceResponse(False, None, None, error_message)
-
-        data = r.json()
-        assert "payment_hash" in data
-        assert "bolt11" in data
-        return InvoiceResponse(True, data["payment_hash"], data["bolt11"], None)
+        except Exception as e:
+            return InvoiceResponse(False, None, None, str(e))
 
     async def pay_invoice(self, bolt11: str, fee_limit_msat: int) -> PaymentResponse:
         try:
-            invoice = decode(bolt11)
+            invoice = bolt11_decode(bolt11)
         except Bolt11Exception as exc:
             return PaymentResponse(False, None, None, None, str(exc))
 
+        previous_payment = await self.get_payment_status(invoice.payment_hash)
+        if previous_payment.paid:
+            return PaymentResponse(False, None, None, None, "invoice already paid")
+
         if not invoice.amount_msat or invoice.amount_msat <= 0:
-            error_message = "0 amount invoices are not allowed"
-            return PaymentResponse(False, None, None, None, error_message)
+            return PaymentResponse(
+                False, None, None, None, "CLN 0 amount invoice not supported"
+            )
+
         fee_limit_percent = fee_limit_msat / invoice.amount_msat * 100
-        r = await self.client.post(
-            f"{self.url}/v1/pay",
-            data={
-                "invoice": bolt11,
-                "maxfeepercent": f"{fee_limit_percent:.11}",
-                "exemptfee": 0,  # so fee_limit_percent is applied even on payments
-                # with fee < 5000 millisatoshi (which is default value of exemptfee)
-            },
-            timeout=None,
-        )
-
-        if r.is_error or "error" in r.json():
+        # so fee_limit_percent is applied even on payments with fee < 5000 millisatoshi
+        # (which is default value of exemptfee)
+        payload = {
+            "bolt11": bolt11,
+            "maxfeepercent": f"{fee_limit_percent:.11}",
+            "exemptfee": 0,
+            # so fee_limit_percent is applied even on payments with fee < 5000
+            # millisatoshi (which is default value of exemptfee)
+            "description": invoice.description,
+        }
+        try:
+            r = await run_sync(lambda: self.ln.call("pay", payload))
+        except RpcError as exc:
             try:
-                data = r.json()
-                error_message = data["error"]
+                error_message = exc.error["attempts"][-1]["fail_reason"]  # type: ignore
             except Exception:
-                error_message = r.text
+                error_message = (
+                    f"CoreLightning method '{exc.method}' failed with"
+                    f" '{exc.error.get('message') or exc.error}'."  # type: ignore
+                )
             return PaymentResponse(False, None, None, None, error_message)
+        except Exception as exc:
+            return PaymentResponse(False, None, None, None, str(exc))
 
-        data = r.json()
-
-        if data["status"] != "complete":
-            return PaymentResponse(False, None, None, None, "payment failed")
-
-        checking_id = data["payment_hash"]
-        preimage = data["payment_preimage"]
-        fee_msat = data["msatoshi_sent"] - data["msatoshi"]
-
+        fee_msat = -int(r["amount_sent_msat"] - r["amount_msat"])
         return PaymentResponse(
-            self.statuses.get(data["status"]), checking_id, fee_msat, preimage, None
+            True, r["payment_hash"], fee_msat, r["payment_preimage"], None
         )
 
     async def get_invoice_status(self, checking_id: str) -> PaymentStatus:
-        r = await self.client.get(
-            f"{self.url}/v1/invoice/listInvoices",
-            params={"payment_hash": checking_id},
-        )
         try:
-            r.raise_for_status()
-            data = r.json()
-
-            if r.is_error or "error" in data or data.get("invoices") is None:
-                raise Exception("error in cln response")
-            return PaymentStatus(self.statuses.get(data["invoices"][0]["status"]))
-        except Exception as e:
-            logger.error(f"Error getting invoice status: {e}")
+            r: dict = self.ln.listinvoices(payment_hash=checking_id)  # type: ignore
+        except RpcError:
             return PaymentStatus(None)
+        if not r["invoices"]:
+            return PaymentStatus(None)
+
+        invoice_resp = r["invoices"][-1]
+
+        if invoice_resp["payment_hash"] == checking_id:
+            if invoice_resp["status"] == "paid":
+                return PaymentStatus(True)
+            elif invoice_resp["status"] == "unpaid":
+                return PaymentStatus(None)
+            elif invoice_resp["status"] == "expired":
+                return PaymentStatus(False)
+        else:
+            logger.warning(f"supplied an invalid checking_id: {checking_id}")
+        return PaymentStatus(None)
 
     async def get_payment_status(self, checking_id: str) -> PaymentStatus:
-        r = await self.client.get(
-            f"{self.url}/v1/pay/listPays",
-            params={"payment_hash": checking_id},
-        )
         try:
-            r.raise_for_status()
-            data = r.json()
-
-            if r.is_error or "error" in data or not data.get("pays"):
-                raise Exception("error in corelightning-rest response")
-
-            pay = data["pays"][0]
-
-            fee_msat, preimage = None, None
-            if self.statuses[pay["status"]]:
-                # cut off "msat" and convert to int
-                fee_msat = -int(pay["amount_sent_msat"][:-4]) - int(
-                    pay["amount_msat"][:-4]
-                )
-                preimage = pay["preimage"]
-
-            return PaymentStatus(self.statuses.get(pay["status"]), fee_msat, preimage)
-        except Exception as e:
-            logger.error(f"Error getting payment status: {e}")
+            r: dict = self.ln.listpays(payment_hash=checking_id)  # type: ignore
+        except Exception:
             return PaymentStatus(None)
+        if "pays" not in r:
+            return PaymentStatus(None)
+        if not r["pays"]:
+            # no payment with this payment_hash is found
+            return PaymentStatus(False)
+
+        payment_resp = r["pays"][-1]
+
+        if payment_resp["payment_hash"] == checking_id:
+            status = payment_resp["status"]
+            if status == "complete":
+                fee_msat = -int(
+                    payment_resp["amount_sent_msat"] - payment_resp["amount_msat"]
+                )
+
+                return PaymentStatus(True, fee_msat, payment_resp["preimage"])
+            elif status == "failed":
+                return PaymentStatus(False)
+            else:
+                return PaymentStatus(None)
+        else:
+            logger.warning(f"supplied an invalid checking_id: {checking_id}")
+        return PaymentStatus(None)
 
     async def paid_invoices_stream(self) -> AsyncGenerator[str, None]:
         while True:
             try:
-                url = f"{self.url}/v1/invoice/waitAnyInvoice/{self.last_pay_index}"
-                async with self.client.stream("GET", url, timeout=None) as r:
-                    async for line in r.aiter_lines():
-                        inv = json.loads(line)
-                        if "error" in inv and "message" in inv["error"]:
-                            logger.error("Error in paid_invoices_stream:", inv)
-                            raise Exception(inv["error"]["message"])
-                        try:
-                            paid = inv["status"] == "paid"
-                            self.last_pay_index = inv["pay_index"]
-                            if not paid:
-                                continue
-                        except Exception:
-                            continue
-                        logger.trace(f"paid invoice: {inv}")
-
-                        # NOTE: use payment_hash when corelightning-rest returns it
-                        # when using waitAnyInvoice
-                        # payment_hash = inv["payment_hash"]
-                        # yield payment_hash
-                        # hack to return payment_hash if the above shouldn't work
-                        r = await self.client.get(
-                            f"{self.url}/v1/invoice/listInvoices",
-                            params={"label": inv["label"]},
-                        )
-                        paid_invoice = r.json()
-                        logger.trace(f"paid invoice: {paid_invoice}")
-                        assert self.statuses[
-                            paid_invoice["invoices"][0]["status"]
-                        ], "streamed invoice not paid"
-                        assert "invoices" in paid_invoice, "no invoices in response"
-                        assert len(paid_invoice["invoices"]), "no invoices in response"
-                        yield paid_invoice["invoices"][0]["payment_hash"]
-
-            except Exception as exc:
-                logger.debug(
-                    f"lost connection to corelightning-rest invoices stream: '{exc}', "
-                    "reconnecting..."
+                paid = await run_sync(
+                    lambda: self.ln.waitanyinvoice(self.last_pay_index, timeout=2)
                 )
-                await asyncio.sleep(0.02)
+                self.last_pay_index = paid["pay_index"]
+                yield paid["payment_hash"]
+            except RpcError as exc:
+                # only raise if not a timeout
+                if exc.error["code"] != 904:  # type: ignore
+                    raise
+            except Exception as exc:
+                logger.error(
+                    f"lost connection to corelightning invoices stream: '{exc}', "
+                    "retrying in 5 seconds"
+                )
+                await asyncio.sleep(5)
