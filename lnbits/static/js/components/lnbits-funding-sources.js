@@ -47,9 +47,9 @@ Vue.component('lnbits-funding-sources', {
           'CLNRestWallet',
           'CLNRest',
           {
-            cln_rest_url: 'Endpoint',
-            cln_rest_cert: 'Certificate',
-            cln_rest_rune: 'Rune'
+            clnrest_url: 'Endpoint',
+            clnrest_cert: 'Certificate',
+            clnrest_rune: 'Rune'
           }
         ],
         [

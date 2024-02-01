@@ -21,26 +21,26 @@ from .base import (
 from .macaroon import load_macaroon
 
 
-class CoreLightningRestWallet(Wallet):
+class CLNRestWallet(Wallet):
     def __init__(self):
-        if not settings.corelightning_rest_url:
+        if not settings.clnrest_url:
             raise ValueError(
-                "cannot initialize CoreLightningRestWallet: "
-                "missing corelightning_rest_url"
+                "cannot initialize CLNRest: "
+                "missing clnrest_url"
             )
-        if not settings.corelightning_rest_macaroon:
+        if not settings.clnrest_rune:
             raise ValueError(
-                "cannot initialize CoreLightningRestWallet: "
-                "missing corelightning_rest_macaroon"
+                "cannot initialize CLNRest: "
+                "missing clnrest_rune"
             )
-        macaroon = load_macaroon(settings.corelightning_rest_macaroon)
+        macaroon = load_macaroon(settings.clnrest_rune)
         if not macaroon:
             raise ValueError(
-                "cannot initialize CoreLightningRestWallet: "
-                "invalid corelightning_rest_macaroon provided"
+                "cannot initialize CLNRest: "
+                "invalid clnrest_macaroon provided"
             )
 
-        self.url = self.normalize_endpoint(settings.corelightning_rest_url)
+        self.url = self.normalize_endpoint(settings.clnrest_url)
         headers = {
             "macaroon": macaroon,
             "encodingtype": "hex",
@@ -48,7 +48,7 @@ class CoreLightningRestWallet(Wallet):
             "User-Agent": settings.user_agent,
         }
 
-        self.cert = settings.corelightning_rest_cert or False
+        self.cert = settings.clnrest_cert or False
         self.client = httpx.AsyncClient(verify=self.cert, headers=headers)
         self.last_pay_index = 0
         self.statuses = {
