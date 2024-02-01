@@ -18,7 +18,6 @@ from .base import (
     Unsupported,
     Wallet,
 )
-from .macaroon import load_macaroon
 
 
 class CLNRestWallet(Wallet):
@@ -33,16 +32,16 @@ class CLNRestWallet(Wallet):
                 "cannot initialize CLNRest: "
                 "missing clnrest_rune"
             )
-        macaroon = load_macaroon(settings.clnrest_rune)
-        if not macaroon:
+        rune = settings.clnrest_rune
+        if not rune:
             raise ValueError(
                 "cannot initialize CLNRest: "
-                "invalid clnrest_macaroon provided"
+                "invalid clnrest_rune provided"
             )
 
         self.url = self.normalize_endpoint(settings.clnrest_url)
         headers = {
-            "macaroon": macaroon,
+            "rune": rune,
             "encodingtype": "hex",
             "accept": "application/json",
             "User-Agent": settings.user_agent,
