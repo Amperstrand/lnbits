@@ -112,7 +112,7 @@ class CLNRestWallet(Wallet):
     ) -> InvoiceResponse:
         label = f"lbl{random.random()}"
         data: Dict = {
-            "amount": amount * 1000,
+            "amount_msat": amount * 1000,
             "description": memo,
             "label": label,
         }
@@ -131,9 +131,10 @@ class CLNRestWallet(Wallet):
         if kwargs.get("preimage"):
             data["preimage"] = kwargs["preimage"]
 
+        logger.debug(f"REQUEST to /v1/invoice: : {json.dumps(data)}")
         r = await self.client.post(
-            f"{self.url}/v1/invoice/genInvoice",
-            data=data,
+            f"{self.url}/v1/invoice",
+            json=data,
         )
 
         if r.is_error or "error" in r.json():
