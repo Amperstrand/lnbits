@@ -194,9 +194,11 @@ class CLNRestWallet(Wallet):
         )
 
     async def get_invoice_status(self, checking_id: str) -> PaymentStatus:
-        r = await self.client.get(
-            f"{self.url}/v1/invoice/listInvoices",
-            params={"payment_hash": checking_id},
+        data: Dict = { "payment_hash": checking_id }
+        logger.debug(f"REQUEST to /v1/listinvoices: {json.dumps(data)}")
+        r = await self.client.post(
+            f"{self.url}/v1/listinvoices",
+            json=data,
         )
         try:
             r.raise_for_status()
@@ -204,6 +206,7 @@ class CLNRestWallet(Wallet):
 
             if r.is_error or "error" in data or data.get("invoices") is None:
                 raise Exception("error in cln response")
+            logger.debug(f"RESPONSE: invoice with payment_hash {data['invoices'][0]['payment_hash']} has status {data['invoices'][0]['status']}")
             return PaymentStatus(self.statuses.get(data["invoices"][0]["status"]))
         except Exception as e:
             logger.error(f"Error getting invoice status: {e}")
