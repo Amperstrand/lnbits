@@ -213,9 +213,12 @@ class CLNRestWallet(Wallet):
             return PaymentStatus(None)
 
     async def get_payment_status(self, checking_id: str) -> PaymentStatus:
-        r = await self.client.get(
-            f"{self.url}/v1/pay/listPays",
-            params={"payment_hash": checking_id},
+        data: Dict = { "payment_hash": checking_id }
+
+        logger.debug(f"REQUEST to /v1/listpays: {json.dumps(data)}")
+        r = await self.client.post(
+            f"{self.url}/v1/listpays",
+            json=data,
         )
         try:
             r.raise_for_status()
