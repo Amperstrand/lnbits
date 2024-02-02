@@ -19,8 +19,15 @@ from .base import (
     Wallet,
 )
 
+def parse_msat(value):
+    # Check if the value ends with 'msat' and remove it
+    if value.endswith("msat"):
+        return int(value[:-4])  # Remove the last 4 characters ('msat') and convert to int
+    else:
+        raise ValueError(f"Unexpected format for amount: {value}")
 
 class CLNRestWallet(Wallet):
+
     def __init__(self):
         if not settings.clnrest_url:
             raise ValueError(
@@ -89,13 +96,6 @@ class CLNRestWallet(Wallet):
         if not data.get("channels"):
             return StatusResponse("no data or no channels available", 0)
 
-        def parse_msat(value):
-            # Check if the value ends with 'msat' and remove it
-            if value.endswith("msat"):
-                return int(value[:-4])  # Remove the last 4 characters ('msat') and convert to int
-            else:
-                raise ValueError(f"Unexpected format for amount: {value}")
-
         total_our_amount_msat = sum(parse_msat(channel["our_amount_msat"]) for channel in data["channels"])
 
         #todo: calculate the amount of spendable sats based on rune permissions or some sort of accounting system?
@@ -161,33 +161,45 @@ class CLNRestWallet(Wallet):
             error_message = "0 amount invoices are not allowed"
             return PaymentResponse(False, None, None, None, error_message)
         fee_limit_percent = fee_limit_msat / invoice.amount_msat * 100
-        r = await self.client.post(
-            f"{self.url}/v1/pay",
-            data={
-                "invoice": bolt11,
+        data: Dict = {
+                "bolt11": bolt11,
                 "maxfeepercent": f"{fee_limit_percent:.11}",
                 "exemptfee": 0,  # so fee_limit_percent is applied even on payments
                 # with fee < 5000 millisatoshi (which is default value of exemptfee)
-            },
+        }
+        logger.debug(f"REQUEST to /v1/pay: {json.dumps(data)}")
+        r = await self.client.post(
+            f"{self.url}/v1/pay",
+            json=data,
             timeout=None,
         )
 
         if r.is_error or "error" in r.json():
             try:
                 data = r.json()
+                logger.debug(f"RESPONSE with error: {data}")
                 error_message = data["error"]
             except Exception:
                 error_message = r.text
             return PaymentResponse(False, None, None, None, error_message)
 
         data = r.json()
+        logger.debug(f"RESPONSE: {data}")
 
         if data["status"] != "complete":
             return PaymentResponse(False, None, None, None, "payment failed")
 
+        #destination = data['destination']
+        #created_at = data['created_at']
+        #parts = data['parts']
+        status = data['status']
+
         checking_id = data["payment_hash"]
         preimage = data["payment_preimage"]
-        fee_msat = data["msatoshi_sent"] - data["msatoshi"]
+
+        amount_sent_msat_int = parse_msat(data.get('amount_sent_msat'))
+        amount_msat_int = parse_msat(data.get('amount_msat'))
+        fee_msat = amount_sent_msat_int - amount_msat_int
 
         return PaymentResponse(
             self.statuses.get(data["status"]), checking_id, fee_msat, preimage, None
