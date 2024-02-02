@@ -156,6 +156,7 @@ class CLNRestFundingSource(LNbitsSettings):
     clnrest_url: Optional[str] = Field(default="https://127.0.0.1:3010")
     clnrest_rune: Optional[str] = Field(default=None)
     clnrest_cert: Optional[str] = Field(default=None)
+    clnrest_nodeid: Optional[str] = Field(default=None)
 
 class EclairFundingSource(LNbitsSettings):
     eclair_url: Optional[str] = Field(default=None)

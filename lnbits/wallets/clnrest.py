@@ -33,6 +33,8 @@ class CLNRestWallet(Wallet):
                 "missing clnrest_rune"
             )
         rune = settings.clnrest_rune
+        nodeid = settings.clnrest_nodeid
+
         if not rune:
             raise ValueError(
                 "cannot initialize CLNRest: "
@@ -40,11 +42,13 @@ class CLNRestWallet(Wallet):
             )
 
         self.url = self.normalize_endpoint(settings.clnrest_url)
+
         headers = {
-            "rune": rune,
-            "encodingtype": "hex",
             "accept": "application/json",
             "User-Agent": settings.user_agent,
+            "Content-Type": "application/json",
+            "rune": rune,
+            "nodeid": nodeid,
         }
 
         self.cert = settings.clnrest_cert or False
@@ -64,7 +68,9 @@ class CLNRestWallet(Wallet):
             logger.warning(f"Error closing wallet connection: {e}")
 
     async def status(self) -> StatusResponse:
-        r = await self.client.get(f"{self.url}/v1/channel/localremotebal", timeout=5)
+        data={}
+        logger.debug(f"REQUEST to /v1/getinfo: {json.dumps(data)}")
+        r = await self.client.post( f"{self.url}/v1/listfunds", timeout=5, json=data)
         r.raise_for_status()
         if r.is_error or "error" in r.json():
             try:
@@ -80,7 +86,21 @@ class CLNRestWallet(Wallet):
         if len(data) == 0:
             return StatusResponse("no data", 0)
 
-        return StatusResponse(None, int(data.get("localBalance") * 1000))
+        if not data.get("channels"):
+            return StatusResponse("no data or no channels available", 0)
+
+        def parse_msat(value):
+            # Check if the value ends with 'msat' and remove it
+            if value.endswith("msat"):
+                return int(value[:-4])  # Remove the last 4 characters ('msat') and convert to int
+            else:
+                raise ValueError(f"Unexpected format for amount: {value}")
+
+        total_our_amount_msat = sum(parse_msat(channel["our_amount_msat"]) for channel in data["channels"])
+
+        #todo: calculate the amount of spendable sats based on rune permissions or some sort of accounting system?
+
+        return StatusResponse(None, total_our_amount_msat)
 
     async def create_invoice(
         self,
