@@ -242,8 +242,12 @@ class CLNRestWallet(Wallet):
     async def paid_invoices_stream(self) -> AsyncGenerator[str, None]:
         while True:
             try:
-                url = f"{self.url}/v1/invoice/waitAnyInvoice/{self.last_pay_index}"
-                async with self.client.stream("GET", url, timeout=None) as r:
+                read_timeout=None
+                data: Dict = { "lastpay_index": self.last_pay_index, "timeout": read_timeout}
+                request_timeout = httpx.Timeout(connect=5.0, read=read_timeout, write=60.0, pool=60.0)
+                url = f"{self.url}/v1/waitanyinvoice"
+                logger.debug(f"REQUEST(stream) to  /v1/waitanyinvoice with data: {data}.")
+                async with self.client.stream("POST", url, json=data, timeout=request_timeout) as r:
                     async for line in r.aiter_lines():
                         inv = json.loads(line)
                         if "error" in inv and "message" in inv["error"]:
@@ -260,21 +264,23 @@ class CLNRestWallet(Wallet):
 
                         # NOTE: use payment_hash when corelightning-rest returns it
                         # when using waitAnyInvoice
-                        # payment_hash = inv["payment_hash"]
-                        # yield payment_hash
+                        payment_hash = inv["payment_hash"]
+                        yield payment_hash
+
                         # hack to return payment_hash if the above shouldn't work
-                        r = await self.client.get(
-                            f"{self.url}/v1/invoice/listInvoices",
-                            params={"label": inv["label"]},
-                        )
-                        paid_invoice = r.json()
-                        logger.trace(f"paid invoice: {paid_invoice}")
-                        assert self.statuses[
-                            paid_invoice["invoices"][0]["status"]
-                        ], "streamed invoice not paid"
-                        assert "invoices" in paid_invoice, "no invoices in response"
-                        assert len(paid_invoice["invoices"]), "no invoices in response"
-                        yield paid_invoice["invoices"][0]["payment_hash"]
+                        #r = await self.client.get(
+                        #    f"{self.url}/v1/invoice/listInvoices",
+                        #    params={"label": inv["label"]},
+                        #)
+                        #paid_invoice = r.json()
+                        #logger.trace(f"paid invoice: {paid_invoice}")
+                        #assert self.statuses[
+                        #    paid_invoice["invoices"][0]["status"]
+                        #], "streamed invoice not paid"
+                        #assert "invoices" in paid_invoice, "no invoices in response"
+                        #assert len(paid_invoice["invoices"]), "no invoices in response"
+                        #logger.debug(inv)
+                        #yield paid_invoice["invoices"][0]["payment_hash"]
 
             except Exception as exc:
                 logger.debug(
