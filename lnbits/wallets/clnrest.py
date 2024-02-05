@@ -160,16 +160,35 @@ class CLNRestWallet(Wallet):
         if not invoice.amount_msat or invoice.amount_msat <= 0:
             error_message = "0 amount invoices are not allowed"
             return PaymentResponse(False, None, None, None, error_message)
-        fee_limit_percent = fee_limit_msat / invoice.amount_msat * 100
-        data: Dict = {
+
+        if settings.clnrest_enable_renepay:
+            api_endpoint = f"{self.url}/v1/renepay"
+            maxfee = fee_limit_msat
+            maxdelay = 300
+            data = {
+                "invstring": bolt11,
+                "maxfee": maxfee,
+                "retry_for": 60,
+            }
+                #"amount_msat": invoice.amount_msat,
+                #"maxdelay": maxdelay,
+                #"description": memo,
+                #"label": label,
+                # Add other necessary parameters like retry_for, description, label as required
+        else:
+            api_endpoint = f"{self.url}/v1/pay"
+            fee_limit_percent = fee_limit_msat / invoice.amount_msat * 100
+            data = {
                 "bolt11": bolt11,
                 "maxfeepercent": f"{fee_limit_percent:.11}",
                 "exemptfee": 0,  # so fee_limit_percent is applied even on payments
                 # with fee < 5000 millisatoshi (which is default value of exemptfee)
-        }
-        logger.debug(f"REQUEST to /v1/pay: {json.dumps(data)}")
+            }
+
+        logger.debug(f"REQUEST to {api_endpoint}: {json.dumps(data)}")
+
         r = await self.client.post(
-            f"{self.url}/v1/pay",
+            api_endpoint,
             json=data,
             timeout=None,
         )
@@ -237,6 +256,7 @@ class CLNRestWallet(Wallet):
             data = r.json()
 
             if r.is_error or "error" in data or not data.get("pays"):
+                logger.error(f"RESPONSE with error: {data}")
                 raise Exception("error in corelightning-rest response")
 
             pay = data["pays"][0]
