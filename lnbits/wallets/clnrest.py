@@ -6,6 +6,7 @@ from typing import AsyncGenerator, Dict, Optional
 import httpx
 from bolt11 import Bolt11Exception
 from bolt11.decode import decode
+from bolt11.encode import encode
 from loguru import logger
 
 from lnbits.settings import settings
@@ -154,32 +155,56 @@ class CLNRestWallet(Wallet):
     async def pay_invoice(self, bolt11: str, fee_limit_msat: int) -> PaymentResponse:
         try:
             invoice = decode(bolt11)
+
+            # rune restrictions can only be applied based on parameters specified to core lightning
+            # this means that with the ways runes currently work, you can't use a rune to inspect
+            # a bolt11 invoice to check if the amount is less then X:
+            # https://github.com/ElementsProject/lightning/issues/7020
+            # Instead, you can maybe extract the amount from the bolt11 invoice and then specify
+            # it as a parameter that a restriction can be applied to
+
+            amount_msat_parsed_from_bolt11_invoice = invoice.amount_msat
+            invoice_without_amount_msat = decode(bolt11)
+            invoice_without_amount_msat.amount_msat=0
+            bolt11_without_amount_msat = encode (invoice_without_amount_msat)
+            #bolt11_without_amount_msat = encode (json.dumps(invoice_without_amount_msat))
+
+            logger.debug("before")
+            logger.debug(invoice)
+            logger.debug(json.dumps(invoice, default=str))
+            logger.debug("after")
+            logger.debug(decode(bolt11_without_amount_msat))
+            logger.debug(json.dumps(decode(bolt11_without_amount_msat), default=str))
+
         except Bolt11Exception as exc:
             return PaymentResponse(False, None, None, None, str(exc))
 
+        #todo: find out why LNBits doesn't like 0 sat or null for amount_msat
         if not invoice.amount_msat or invoice.amount_msat <= 0:
             error_message = "0 amount invoices are not allowed"
             return PaymentResponse(False, None, None, None, error_message)
+
+
 
         if settings.clnrest_enable_renepay:
             api_endpoint = f"{self.url}/v1/renepay"
             maxfee = fee_limit_msat
             maxdelay = 300
             data = {
-                "invstring": bolt11,
+                "invstring": bolt11_without_amount_msat,
+                "amount_msat": amount_msat_parsed_from_bolt11_invoice,
                 "maxfee": maxfee,
-                "retry_for": 60,
             }
-                #"amount_msat": invoice.amount_msat,
                 #"maxdelay": maxdelay,
                 #"description": memo,
                 #"label": label,
                 # Add other necessary parameters like retry_for, description, label as required
         else:
             api_endpoint = f"{self.url}/v1/pay"
-            fee_limit_percent = fee_limit_msat / invoice.amount_msat * 100
+            fee_limit_percent = fee_limit_msat / amount_msat_parsed_from_bolt11_invoice * 100
             data = {
-                "bolt11": bolt11,
+                "bolt11": bolt11_without_amount_msat,
+                "amount_msat": amount_msat_parsed_from_bolt11_invoice,
                 "maxfeepercent": f"{fee_limit_percent:.11}",
                 "exemptfee": 0,  # so fee_limit_percent is applied even on payments
                 # with fee < 5000 millisatoshi (which is default value of exemptfee)
