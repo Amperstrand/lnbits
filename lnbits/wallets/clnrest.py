@@ -320,7 +320,7 @@ class CLNRestWallet(Wallet):
             #todo: try to load the wallet specific invoice rune here instead of from self.invoice_headers which comes from self.settings.cln_invoice_rune
             return InvoiceResponse( False, None, None, "Unable to invoice without a valid invoice rune")
         else:
-            self.invoice_headers = {**self.base_headers, "rune": self.invoice_rune, "nodeid": settings.clnrest_nodeid}
+            self.invoice_headers = {**self.base_headers, "rune": settings.clnrest_invoice_rune, "nodeid": settings.clnrest_nodeid}
 
         #TODO: the identifier could be used to encode the LNBits user or the LNBits wallet that is creating the invoice
 
