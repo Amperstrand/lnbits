@@ -9,6 +9,7 @@ from lnbits.wallets.base import Wallet
 
 from .alby import AlbyWallet
 from .cliche import ClicheWallet
+from .clnrest import CLNRestWallet
 from .corelightning import CoreLightningWallet
 
 # The following import is intentional to keep backwards compatibility

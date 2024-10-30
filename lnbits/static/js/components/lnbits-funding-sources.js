@@ -28,6 +28,18 @@ Vue.component('lnbits-funding-sources', {
           }
         ],
         [
+          'CLNRestWallet',
+          'Core Lightning CLNRest',
+          {
+	    clnrest_url: 'Endpoint',
+            clnrest_nodeid: 'Node id',
+            clnrest_cert: 'Path to CLNRest SSL cert',
+            clnrest_readonly_rune: 'Rune used for readonly requests',
+            clnrest_invoice_rune: 'Rune used to create invoices',
+            clnrest_pay_rune: 'Rune used to pay invoices'
+          }
+        ],
+        [
           'CoreLightningWallet',
           'Core Lightning',
           {

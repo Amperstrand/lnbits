@@ -138,6 +138,13 @@ class LNbitsFundingSource(LNbitsSettings):
 class ClicheFundingSource(LNbitsSettings):
     cliche_endpoint: Optional[str] = Field(default=None)
 
+class CLNRestFundingSource(LNbitsSettings):
+    clnrest_nodeid: Optional[str] = Field(default=None)
+    clnrest_url: Optional[str] = Field(default=None)
+    clnrest_cert: Optional[str] = Field(default=None)
+    clnrest_readonly_rune: Optional[str] = Field(default=None)
+    clnrest_pay_rune: Optional[str] = Field(default=None)
+    clnrest_invoice_rune: Optional[str] = Field(default=None)
 
 class CoreLightningFundingSource(LNbitsSettings):
     corelightning_rpc: Optional[str] = Field(default=None)
@@ -215,6 +222,7 @@ class LightningSettings(LNbitsSettings):
 class FundingSourcesSettings(
     FakeWalletFundingSource,
     LNbitsFundingSource,
+    CLNRestFundingSource,
     ClicheFundingSource,
     CoreLightningFundingSource,
     CoreLightningRestFundingSource,
@@ -324,6 +332,7 @@ class SuperUserSettings(LNbitsSettings):
         default=[
             "VoidWallet",
             "FakeWallet",
+            "CLNRestWallet",
             "CoreLightningWallet",
             "CoreLightningRestWallet",
             "LndRestWallet",
