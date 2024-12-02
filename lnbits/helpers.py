@@ -32,8 +32,15 @@ def get_db_vendor_name():
     )
 
 
-def urlsafe_short_hash() -> str:
-    return shortuuid.uuid()
+def urlsafe_short_hash(input_str: Optional[str] = None) -> str:
+    if input_str is not None:
+        # Create a SHA-256 hash of the input string
+        hash_object = hashlib.sha256(input_str.encode('utf-8'))
+        hash_bytes = hash_object.digest()
+        # Encode the hash bytes into a short UUID
+        return shortuuid.encode(hash_bytes)
+    else:
+        return shortuuid.uuid()
 
 
 def url_for(endpoint: str, external: Optional[bool] = False, **params: Any) -> str:
